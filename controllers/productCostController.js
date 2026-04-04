@@ -32,6 +32,7 @@ const createProductCost = async (req, res) => {
       shippingCharge,
       bdCourierCharge,
       courierCharge,
+      profitPercent,
       note,
     } = req.body;
 
@@ -56,6 +57,7 @@ const createProductCost = async (req, res) => {
       shippingCharge: shippingCharge || 0,
       bdCourierCharge: type === 'international' ? (bdCourierCharge || 0) : 0,
       courierCharge: type === 'national' ? (courierCharge || 0) : 0,
+      profitPercent: profitPercent || 0,
       note,
       image,
       imagePublicId,
@@ -87,6 +89,7 @@ const updateProductCost = async (req, res) => {
       shippingCharge,
       bdCourierCharge,
       courierCharge,
+      profitPercent,
       note,
     } = req.body;
 
@@ -94,6 +97,7 @@ const updateProductCost = async (req, res) => {
     if (type !== undefined) item.type = type;
     if (productPrice !== undefined) item.productPrice = productPrice;
     if (shippingCharge !== undefined) item.shippingCharge = shippingCharge;
+    if (profitPercent !== undefined) item.profitPercent = profitPercent;
     if (note !== undefined) item.note = note;
 
     const resolvedType = type !== undefined ? type : item.type;
@@ -187,7 +191,8 @@ const exportExcel = async (req, res) => {
     // Header row
     const intlHeaders = [
       'SL', 'Product Name', 'Company', 'Product Price (৳)',
-      'China Local Courier (৳)', 'Shipping Charge (৳)', 'BD Courier Charge (৳)', 'Total Cost (৳)',
+      'China Local Courier (৳)', 'Shipping Charge (৳)', 'BD Courier Charge (৳)',
+      'Total Cost (৳)', 'Profit %', 'Selling Price (৳)',
     ];
     const intlHeaderRow = wsIntl.addRow(intlHeaders);
     intlHeaderRow.eachCell((cell) => {
@@ -212,6 +217,8 @@ const exportExcel = async (req, res) => {
         item.shippingCharge || 0,
         item.bdCourierCharge || 0,
         item.totalCost || 0,
+        item.profitPercent || 0,
+        item.sellingPrice || 0,
       ]);
       row.eachCell((cell, colNum) => {
         cell.border = {
@@ -225,6 +232,7 @@ const exportExcel = async (req, res) => {
         }
         if (colNum >= 4) cell.numFmt = '#,##0.00';
         if (colNum === 8) cell.font = { bold: true, color: { argb: 'FF4F46E5' } };
+        if (colNum === 10) cell.font = { bold: true, color: { argb: 'FFDC2626' } };
       });
     });
 
@@ -237,6 +245,8 @@ const exportExcel = async (req, res) => {
         intlItems.reduce((s, i) => s + (i.shippingCharge || 0), 0),
         intlItems.reduce((s, i) => s + (i.bdCourierCharge || 0), 0),
         intlItems.reduce((s, i) => s + (i.totalCost || 0), 0),
+        '',
+        intlItems.reduce((s, i) => s + (i.sellingPrice || 0), 0),
       ]);
       totalRow.eachCell((cell, colNum) => {
         cell.font = { bold: true };
@@ -248,7 +258,7 @@ const exportExcel = async (req, res) => {
 
     wsIntl.columns = [
       { width: 6 }, { width: 30 }, { width: 20 }, { width: 18 },
-      { width: 22 }, { width: 18 }, { width: 20 }, { width: 16 },
+      { width: 22 }, { width: 18 }, { width: 20 }, { width: 16 }, { width: 10 }, { width: 18 },
     ];
 
     // ── Sheet 2: National ──────────────────────────────────────────
@@ -264,7 +274,8 @@ const exportExcel = async (req, res) => {
 
     const natHeaders = [
       'SL', 'Product Name', 'Company',
-      'Product Price (৳)', 'Courier Charge (৳)', 'Shipping Charge (৳)', 'Total Cost (৳)',
+      'Product Price (৳)', 'Courier Charge (৳)', 'Shipping Charge (৳)',
+      'Total Cost (৳)', 'Profit %', 'Selling Price (৳)',
     ];
     const natHeaderRow = wsNat.addRow(natHeaders);
     natHeaderRow.eachCell((cell) => {
@@ -285,6 +296,8 @@ const exportExcel = async (req, res) => {
         item.courierCharge || 0,
         item.shippingCharge || 0,
         item.totalCost || 0,
+        item.profitPercent || 0,
+        item.sellingPrice || 0,
       ]);
       row.eachCell((cell, colNum) => {
         cell.border = {
@@ -296,6 +309,7 @@ const exportExcel = async (req, res) => {
         if (idx % 2 === 1) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDF4' } };
         if (colNum >= 4) cell.numFmt = '#,##0.00';
         if (colNum === 7) cell.font = { bold: true, color: { argb: 'FF059669' } };
+        if (colNum === 9) cell.font = { bold: true, color: { argb: 'FFDC2626' } };
       });
     });
 
@@ -306,6 +320,8 @@ const exportExcel = async (req, res) => {
         natItems.reduce((s, i) => s + (i.courierCharge || 0), 0),
         natItems.reduce((s, i) => s + (i.shippingCharge || 0), 0),
         natItems.reduce((s, i) => s + (i.totalCost || 0), 0),
+        '',
+        natItems.reduce((s, i) => s + (i.sellingPrice || 0), 0),
       ]);
       totalRow.eachCell((cell, colNum) => {
         cell.font = { bold: true };
@@ -317,7 +333,7 @@ const exportExcel = async (req, res) => {
 
     wsNat.columns = [
       { width: 6 }, { width: 30 }, { width: 20 },
-      { width: 18 }, { width: 18 }, { width: 18 }, { width: 16 },
+      { width: 18 }, { width: 18 }, { width: 18 }, { width: 16 }, { width: 10 }, { width: 18 },
     ];
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -349,6 +365,8 @@ const exportWord = async (req, res) => {
         <td style="border:1px solid #ddd;padding:8px;text-align:right">${(item.shippingCharge || 0).toLocaleString()}</td>
         <td style="border:1px solid #ddd;padding:8px;text-align:right">${(item.bdCourierCharge || 0).toLocaleString()}</td>
         <td style="border:1px solid #ddd;padding:8px;text-align:right;font-weight:bold;color:#4f46e5">${(item.totalCost || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:8px;text-align:right">${(item.profitPercent || 0)}%</td>
+        <td style="border:1px solid #ddd;padding:8px;text-align:right;font-weight:bold;color:#7c3aed">${(item.sellingPrice || 0).toLocaleString()}</td>
       </tr>`).join('');
 
     const intlTotal = {
@@ -357,6 +375,7 @@ const exportWord = async (req, res) => {
       shipping: intlItems.reduce((s, i) => s + (i.shippingCharge || 0), 0),
       bdCourier: intlItems.reduce((s, i) => s + (i.bdCourierCharge || 0), 0),
       total: intlItems.reduce((s, i) => s + (i.totalCost || 0), 0),
+      sellingPrice: intlItems.reduce((s, i) => s + (i.sellingPrice || 0), 0),
     };
 
     const natRows = natItems.map((item, idx) => `
@@ -368,6 +387,8 @@ const exportWord = async (req, res) => {
         <td style="border:1px solid #ddd;padding:8px;text-align:right">${(item.courierCharge || 0).toLocaleString()}</td>
         <td style="border:1px solid #ddd;padding:8px;text-align:right">${(item.shippingCharge || 0).toLocaleString()}</td>
         <td style="border:1px solid #ddd;padding:8px;text-align:right;font-weight:bold;color:#059669">${(item.totalCost || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:8px;text-align:right">${(item.profitPercent || 0)}%</td>
+        <td style="border:1px solid #ddd;padding:8px;text-align:right;font-weight:bold;color:#7c3aed">${(item.sellingPrice || 0).toLocaleString()}</td>
       </tr>`).join('');
 
     const natTotal = {
@@ -375,6 +396,7 @@ const exportWord = async (req, res) => {
       courier: natItems.reduce((s, i) => s + (i.courierCharge || 0), 0),
       shipping: natItems.reduce((s, i) => s + (i.shippingCharge || 0), 0),
       total: natItems.reduce((s, i) => s + (i.totalCost || 0), 0),
+      sellingPrice: natItems.reduce((s, i) => s + (i.sellingPrice || 0), 0),
     };
 
     const html = `
@@ -414,10 +436,12 @@ const exportWord = async (req, res) => {
       <th class="intl">Shipping Charge (৳)</th>
       <th class="intl">BD Courier Charge (৳)</th>
       <th class="intl">Total Cost (৳)</th>
+      <th class="intl">Profit %</th>
+      <th class="intl">Selling Price (৳)</th>
     </tr>
   </thead>
   <tbody>
-    ${intlRows || '<tr><td colspan="8" style="text-align:center;color:#aaa;padding:16px">No international products</td></tr>'}
+    ${intlRows || '<tr><td colspan="10" style="text-align:center;color:#aaa;padding:16px">No international products</td></tr>'}
     <tr class="total">
       <td></td><td>TOTAL</td><td></td>
       <td style="text-align:right">${intlTotal.productPrice.toLocaleString()}</td>
@@ -425,6 +449,8 @@ const exportWord = async (req, res) => {
       <td style="text-align:right">${intlTotal.shipping.toLocaleString()}</td>
       <td style="text-align:right">${intlTotal.bdCourier.toLocaleString()}</td>
       <td style="text-align:right;color:#4f46e5">${intlTotal.total.toLocaleString()}</td>
+      <td></td>
+      <td style="text-align:right;color:#7c3aed">${intlTotal.sellingPrice.toLocaleString()}</td>
     </tr>
   </tbody>
 </table>
@@ -440,16 +466,20 @@ const exportWord = async (req, res) => {
       <th class="nat">Courier Charge (৳)</th>
       <th class="nat">Shipping Charge (৳)</th>
       <th class="nat">Total Cost (৳)</th>
+      <th class="nat">Profit %</th>
+      <th class="nat">Selling Price (৳)</th>
     </tr>
   </thead>
   <tbody>
-    ${natRows || '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:16px">No national products</td></tr>'}
+    ${natRows || '<tr><td colspan="9" style="text-align:center;color:#aaa;padding:16px">No national products</td></tr>'}
     <tr class="total-nat">
       <td></td><td>TOTAL</td><td></td>
       <td style="text-align:right">${natTotal.productPrice.toLocaleString()}</td>
       <td style="text-align:right">${natTotal.courier.toLocaleString()}</td>
       <td style="text-align:right">${natTotal.shipping.toLocaleString()}</td>
       <td style="text-align:right;color:#059669">${natTotal.total.toLocaleString()}</td>
+      <td></td>
+      <td style="text-align:right;color:#7c3aed">${natTotal.sellingPrice.toLocaleString()}</td>
     </tr>
   </tbody>
 </table>

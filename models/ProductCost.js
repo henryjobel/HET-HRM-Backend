@@ -10,25 +10,33 @@ const productCostSchema = new mongoose.Schema(
       required: true,
     },
 
-    // International fields
+    // Shared fields
     productPrice: { type: Number, default: 0, min: 0 },
-    chinaLocalCourierCharge: { type: Number, default: 0, min: 0 },
     shippingCharge: { type: Number, default: 0, min: 0 },
+
+    // International-only fields
+    chinaLocalCourierCharge: { type: Number, default: 0, min: 0 },
     bdCourierCharge: { type: Number, default: 0, min: 0 },
 
-    // National-only field (reuses productPrice & shippingCharge above)
+    // National-only field
     courierCharge: { type: Number, default: 0, min: 0 },
 
-    totalCost: { type: Number },
-    image: { type: String, default: null },        // Cloudinary URL
-    imagePublicId: { type: String, default: null }, // for deletion
+    // Calculated fields
+    totalCost: { type: Number, default: 0 },
+
+    // Profit & selling price
+    profitPercent: { type: Number, default: 0, min: 0 }, // profit margin %
+    sellingPrice: { type: Number, default: 0 },          // auto = totalCost × (1 + profitPercent/100)
+
+    image: { type: String, default: null },
+    imagePublicId: { type: String, default: null },
     note: { type: String, trim: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
 );
 
-// Auto-calculate totalCost before save
+// Auto-calculate totalCost and sellingPrice before save
 productCostSchema.pre('save', function (next) {
   if (this.type === 'international') {
     this.totalCost =
@@ -42,6 +50,8 @@ productCostSchema.pre('save', function (next) {
       (this.courierCharge || 0) +
       (this.shippingCharge || 0);
   }
+  // sellingPrice = totalCost + profit margin
+  this.sellingPrice = this.totalCost * (1 + (this.profitPercent || 0) / 100);
   next();
 });
 
