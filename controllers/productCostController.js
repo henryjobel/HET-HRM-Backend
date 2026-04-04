@@ -27,11 +27,17 @@ const createProductCost = async (req, res) => {
       company,
       productName,
       type,
+      measurementSize,
+      qty,
       productPrice,
       chinaLocalCourierCharge,
       shippingCharge,
       bdCourierCharge,
       courierCharge,
+      establishmentCost,
+      packagingCost,
+      localCourierCost,
+      advertisingCost,
       profitPercent,
       note,
     } = req.body;
@@ -52,11 +58,17 @@ const createProductCost = async (req, res) => {
       company,
       productName,
       type,
+      measurementSize: measurementSize || '',
+      qty: qty || 1,
       productPrice: productPrice || 0,
       chinaLocalCourierCharge: type === 'international' ? (chinaLocalCourierCharge || 0) : 0,
       shippingCharge: shippingCharge || 0,
       bdCourierCharge: type === 'international' ? (bdCourierCharge || 0) : 0,
       courierCharge: type === 'national' ? (courierCharge || 0) : 0,
+      establishmentCost: establishmentCost || 0,
+      packagingCost: packagingCost || 0,
+      localCourierCost: localCourierCost || 0,
+      advertisingCost: advertisingCost || 0,
       profitPercent: profitPercent || 0,
       note,
       image,
@@ -84,19 +96,31 @@ const updateProductCost = async (req, res) => {
     const {
       productName,
       type,
+      measurementSize,
+      qty,
       productPrice,
       chinaLocalCourierCharge,
       shippingCharge,
       bdCourierCharge,
       courierCharge,
+      establishmentCost,
+      packagingCost,
+      localCourierCost,
+      advertisingCost,
       profitPercent,
       note,
     } = req.body;
 
     if (productName !== undefined) item.productName = productName;
     if (type !== undefined) item.type = type;
+    if (measurementSize !== undefined) item.measurementSize = measurementSize;
+    if (qty !== undefined) item.qty = qty;
     if (productPrice !== undefined) item.productPrice = productPrice;
     if (shippingCharge !== undefined) item.shippingCharge = shippingCharge;
+    if (establishmentCost !== undefined) item.establishmentCost = establishmentCost;
+    if (packagingCost !== undefined) item.packagingCost = packagingCost;
+    if (localCourierCost !== undefined) item.localCourierCost = localCourierCost;
+    if (advertisingCost !== undefined) item.advertisingCost = advertisingCost;
     if (profitPercent !== undefined) item.profitPercent = profitPercent;
     if (note !== undefined) item.note = note;
 
@@ -180,7 +204,7 @@ const exportExcel = async (req, res) => {
     const wsIntl = wb.addWorksheet('International');
 
     // Title row
-    wsIntl.mergeCells('A1:H1');
+    wsIntl.mergeCells('A1:N1');
     const titleIntl = wsIntl.getCell('A1');
     titleIntl.value = 'Product Cost — International';
     titleIntl.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
@@ -190,33 +214,42 @@ const exportExcel = async (req, res) => {
 
     // Header row
     const intlHeaders = [
-      'SL', 'Product Name', 'Company', 'Product Price (৳)',
-      'China Local Courier (৳)', 'Shipping Charge (৳)', 'BD Courier Charge (৳)',
-      'Total Cost (৳)', 'Profit %', 'Selling Price (৳)',
+      'SL', 'Product Name', 'Size/Measurement', 'Company', 'Qty',
+      'Unit Price (৳)', 'China Local Courier (৳)', 'Shipping Charge (৳)', 'BD Courier Charge (৳)',
+      'Total Cost (৳)', 'Unit Price After Receiving (৳)',
+      'Estb Cost (৳)', 'Packaging (৳)', 'Local Courier (৳)', 'Advertising (৳)',
+      'Profit %', 'Selling Price (৳)',
     ];
     const intlHeaderRow = wsIntl.addRow(intlHeaders);
     intlHeaderRow.eachCell((cell) => {
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6366F1' } };
-      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       cell.border = {
         top: { style: 'thin' }, bottom: { style: 'thin' },
         left: { style: 'thin' }, right: { style: 'thin' },
       };
     });
-    intlHeaderRow.height = 22;
+    intlHeaderRow.height = 36;
 
     const intlItems = items.filter((i) => i.type === 'international');
     intlItems.forEach((item, idx) => {
       const row = wsIntl.addRow([
         idx + 1,
         item.productName,
+        item.measurementSize || '',
         item.company?.name || '',
+        item.qty || 1,
         item.productPrice || 0,
         item.chinaLocalCourierCharge || 0,
         item.shippingCharge || 0,
         item.bdCourierCharge || 0,
         item.totalCost || 0,
+        item.unitPriceAfterReceiving || 0,
+        item.establishmentCost || 0,
+        item.packagingCost || 0,
+        item.localCourierCost || 0,
+        item.advertisingCost || 0,
         item.profitPercent || 0,
         item.sellingPrice || 0,
       ]);
@@ -230,21 +263,26 @@ const exportExcel = async (req, res) => {
         if (idx % 2 === 1) {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F3FF' } };
         }
-        if (colNum >= 4) cell.numFmt = '#,##0.00';
-        if (colNum === 8) cell.font = { bold: true, color: { argb: 'FF4F46E5' } };
-        if (colNum === 10) cell.font = { bold: true, color: { argb: 'FFDC2626' } };
+        if (colNum >= 6 && colNum !== 16) cell.numFmt = '#,##0.00';
+        if (colNum === 10) cell.font = { bold: true, color: { argb: 'FF4F46E5' } };
+        if (colNum === 17) cell.font = { bold: true, color: { argb: 'FFDC2626' } };
       });
     });
 
     // Total row
     if (intlItems.length) {
       const totalRow = wsIntl.addRow([
-        '', 'TOTAL', '',
+        '', 'TOTAL', '', '', intlItems.reduce((s, i) => s + (i.qty || 1), 0),
         intlItems.reduce((s, i) => s + (i.productPrice || 0), 0),
         intlItems.reduce((s, i) => s + (i.chinaLocalCourierCharge || 0), 0),
         intlItems.reduce((s, i) => s + (i.shippingCharge || 0), 0),
         intlItems.reduce((s, i) => s + (i.bdCourierCharge || 0), 0),
         intlItems.reduce((s, i) => s + (i.totalCost || 0), 0),
+        '', // unit price after receiving — no sum
+        intlItems.reduce((s, i) => s + (i.establishmentCost || 0), 0),
+        intlItems.reduce((s, i) => s + (i.packagingCost || 0), 0),
+        intlItems.reduce((s, i) => s + (i.localCourierCost || 0), 0),
+        intlItems.reduce((s, i) => s + (i.advertisingCost || 0), 0),
         '',
         intlItems.reduce((s, i) => s + (i.sellingPrice || 0), 0),
       ]);
@@ -252,19 +290,22 @@ const exportExcel = async (req, res) => {
         cell.font = { bold: true };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E7FF' } };
         cell.border = { top: { style: 'thin' }, bottom: { style: 'double' }, left: { style: 'thin' }, right: { style: 'thin' } };
-        if (colNum >= 4) cell.numFmt = '#,##0.00';
+        if (colNum >= 6 && colNum !== 16) cell.numFmt = '#,##0.00';
       });
     }
 
     wsIntl.columns = [
-      { width: 6 }, { width: 30 }, { width: 20 }, { width: 18 },
-      { width: 22 }, { width: 18 }, { width: 20 }, { width: 16 }, { width: 10 }, { width: 18 },
+      { width: 5 }, { width: 28 }, { width: 18 }, { width: 18 }, { width: 6 },
+      { width: 16 }, { width: 20 }, { width: 16 }, { width: 18 },
+      { width: 16 }, { width: 24 },
+      { width: 14 }, { width: 14 }, { width: 16 }, { width: 14 },
+      { width: 10 }, { width: 18 },
     ];
 
     // ── Sheet 2: National ──────────────────────────────────────────
     const wsNat = wb.addWorksheet('National');
 
-    wsNat.mergeCells('A1:F1');
+    wsNat.mergeCells('A1:K1');
     const titleNat = wsNat.getCell('A1');
     titleNat.value = 'Product Cost — National';
     titleNat.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
@@ -273,29 +314,38 @@ const exportExcel = async (req, res) => {
     wsNat.getRow(1).height = 30;
 
     const natHeaders = [
-      'SL', 'Product Name', 'Company',
-      'Product Price (৳)', 'Courier Charge (৳)', 'Shipping Charge (৳)',
-      'Total Cost (৳)', 'Profit %', 'Selling Price (৳)',
+      'SL', 'Product Name', 'Size/Measurement', 'Company', 'Qty',
+      'Unit Price (৳)', 'Courier Charge (৳)', 'Shipping Charge (৳)',
+      'Total Cost (৳)', 'Unit Price After Receiving (৳)',
+      'Estb Cost (৳)', 'Packaging (৳)', 'Local Courier (৳)', 'Advertising (৳)',
+      'Profit %', 'Selling Price (৳)',
     ];
     const natHeaderRow = wsNat.addRow(natHeaders);
     natHeaderRow.eachCell((cell) => {
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF10B981' } };
-      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
     });
-    natHeaderRow.height = 22;
+    natHeaderRow.height = 36;
 
     const natItems = items.filter((i) => i.type === 'national');
     natItems.forEach((item, idx) => {
       const row = wsNat.addRow([
         idx + 1,
         item.productName,
+        item.measurementSize || '',
         item.company?.name || '',
+        item.qty || 1,
         item.productPrice || 0,
         item.courierCharge || 0,
         item.shippingCharge || 0,
         item.totalCost || 0,
+        item.unitPriceAfterReceiving || 0,
+        item.establishmentCost || 0,
+        item.packagingCost || 0,
+        item.localCourierCost || 0,
+        item.advertisingCost || 0,
         item.profitPercent || 0,
         item.sellingPrice || 0,
       ]);
@@ -307,19 +357,24 @@ const exportExcel = async (req, res) => {
           right: { style: 'thin', color: { argb: 'FFE5E7EB' } },
         };
         if (idx % 2 === 1) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDF4' } };
-        if (colNum >= 4) cell.numFmt = '#,##0.00';
-        if (colNum === 7) cell.font = { bold: true, color: { argb: 'FF059669' } };
-        if (colNum === 9) cell.font = { bold: true, color: { argb: 'FFDC2626' } };
+        if (colNum >= 6 && colNum !== 15) cell.numFmt = '#,##0.00';
+        if (colNum === 9) cell.font = { bold: true, color: { argb: 'FF059669' } };
+        if (colNum === 16) cell.font = { bold: true, color: { argb: 'FFDC2626' } };
       });
     });
 
     if (natItems.length) {
       const totalRow = wsNat.addRow([
-        '', 'TOTAL', '',
+        '', 'TOTAL', '', '', natItems.reduce((s, i) => s + (i.qty || 1), 0),
         natItems.reduce((s, i) => s + (i.productPrice || 0), 0),
         natItems.reduce((s, i) => s + (i.courierCharge || 0), 0),
         natItems.reduce((s, i) => s + (i.shippingCharge || 0), 0),
         natItems.reduce((s, i) => s + (i.totalCost || 0), 0),
+        '',
+        natItems.reduce((s, i) => s + (i.establishmentCost || 0), 0),
+        natItems.reduce((s, i) => s + (i.packagingCost || 0), 0),
+        natItems.reduce((s, i) => s + (i.localCourierCost || 0), 0),
+        natItems.reduce((s, i) => s + (i.advertisingCost || 0), 0),
         '',
         natItems.reduce((s, i) => s + (i.sellingPrice || 0), 0),
       ]);
@@ -327,13 +382,16 @@ const exportExcel = async (req, res) => {
         cell.font = { bold: true };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
         cell.border = { top: { style: 'thin' }, bottom: { style: 'double' }, left: { style: 'thin' }, right: { style: 'thin' } };
-        if (colNum >= 4) cell.numFmt = '#,##0.00';
+        if (colNum >= 6 && colNum !== 15) cell.numFmt = '#,##0.00';
       });
     }
 
     wsNat.columns = [
-      { width: 6 }, { width: 30 }, { width: 20 },
-      { width: 18 }, { width: 18 }, { width: 18 }, { width: 16 }, { width: 10 }, { width: 18 },
+      { width: 5 }, { width: 28 }, { width: 18 }, { width: 18 }, { width: 6 },
+      { width: 16 }, { width: 16 }, { width: 16 },
+      { width: 16 }, { width: 24 },
+      { width: 14 }, { width: 14 }, { width: 16 }, { width: 14 },
+      { width: 10 }, { width: 18 },
     ];
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -357,16 +415,23 @@ const exportWord = async (req, res) => {
 
     const intlRows = intlItems.map((item, idx) => `
       <tr style="background:${idx % 2 === 0 ? '#fff' : '#f5f3ff'}">
-        <td style="border:1px solid #ddd;padding:8px;text-align:center">${idx + 1}</td>
-        <td style="border:1px solid #ddd;padding:8px">${item.productName}</td>
-        <td style="border:1px solid #ddd;padding:8px">${item.company?.name || ''}</td>
-        <td style="border:1px solid #ddd;padding:8px;text-align:right">${(item.productPrice || 0).toLocaleString()}</td>
-        <td style="border:1px solid #ddd;padding:8px;text-align:right">${(item.chinaLocalCourierCharge || 0).toLocaleString()}</td>
-        <td style="border:1px solid #ddd;padding:8px;text-align:right">${(item.shippingCharge || 0).toLocaleString()}</td>
-        <td style="border:1px solid #ddd;padding:8px;text-align:right">${(item.bdCourierCharge || 0).toLocaleString()}</td>
-        <td style="border:1px solid #ddd;padding:8px;text-align:right;font-weight:bold;color:#4f46e5">${(item.totalCost || 0).toLocaleString()}</td>
-        <td style="border:1px solid #ddd;padding:8px;text-align:right">${(item.profitPercent || 0)}%</td>
-        <td style="border:1px solid #ddd;padding:8px;text-align:right;font-weight:bold;color:#7c3aed">${(item.sellingPrice || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:center">${idx + 1}</td>
+        <td style="border:1px solid #ddd;padding:6px">${item.productName}</td>
+        <td style="border:1px solid #ddd;padding:6px">${item.measurementSize || '-'}</td>
+        <td style="border:1px solid #ddd;padding:6px">${item.company?.name || ''}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:center">${item.qty || 1}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.productPrice || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.chinaLocalCourierCharge || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.shippingCharge || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.bdCourierCharge || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right;font-weight:bold;color:#4f46e5">${(item.totalCost || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.unitPriceAfterReceiving || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.establishmentCost || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.packagingCost || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.localCourierCost || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.advertisingCost || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.profitPercent || 0)}%</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right;font-weight:bold;color:#7c3aed">${(item.sellingPrice || 0).toLocaleString()}</td>
       </tr>`).join('');
 
     const intlTotal = {
@@ -375,20 +440,31 @@ const exportWord = async (req, res) => {
       shipping: intlItems.reduce((s, i) => s + (i.shippingCharge || 0), 0),
       bdCourier: intlItems.reduce((s, i) => s + (i.bdCourierCharge || 0), 0),
       total: intlItems.reduce((s, i) => s + (i.totalCost || 0), 0),
+      estb: intlItems.reduce((s, i) => s + (i.establishmentCost || 0), 0),
+      packaging: intlItems.reduce((s, i) => s + (i.packagingCost || 0), 0),
+      localCourier: intlItems.reduce((s, i) => s + (i.localCourierCost || 0), 0),
+      advertising: intlItems.reduce((s, i) => s + (i.advertisingCost || 0), 0),
       sellingPrice: intlItems.reduce((s, i) => s + (i.sellingPrice || 0), 0),
     };
 
     const natRows = natItems.map((item, idx) => `
       <tr style="background:${idx % 2 === 0 ? '#fff' : '#f0fdf4'}">
-        <td style="border:1px solid #ddd;padding:8px;text-align:center">${idx + 1}</td>
-        <td style="border:1px solid #ddd;padding:8px">${item.productName}</td>
-        <td style="border:1px solid #ddd;padding:8px">${item.company?.name || ''}</td>
-        <td style="border:1px solid #ddd;padding:8px;text-align:right">${(item.productPrice || 0).toLocaleString()}</td>
-        <td style="border:1px solid #ddd;padding:8px;text-align:right">${(item.courierCharge || 0).toLocaleString()}</td>
-        <td style="border:1px solid #ddd;padding:8px;text-align:right">${(item.shippingCharge || 0).toLocaleString()}</td>
-        <td style="border:1px solid #ddd;padding:8px;text-align:right;font-weight:bold;color:#059669">${(item.totalCost || 0).toLocaleString()}</td>
-        <td style="border:1px solid #ddd;padding:8px;text-align:right">${(item.profitPercent || 0)}%</td>
-        <td style="border:1px solid #ddd;padding:8px;text-align:right;font-weight:bold;color:#7c3aed">${(item.sellingPrice || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:center">${idx + 1}</td>
+        <td style="border:1px solid #ddd;padding:6px">${item.productName}</td>
+        <td style="border:1px solid #ddd;padding:6px">${item.measurementSize || '-'}</td>
+        <td style="border:1px solid #ddd;padding:6px">${item.company?.name || ''}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:center">${item.qty || 1}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.productPrice || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.courierCharge || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.shippingCharge || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right;font-weight:bold;color:#059669">${(item.totalCost || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.unitPriceAfterReceiving || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.establishmentCost || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.packagingCost || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.localCourierCost || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.advertisingCost || 0).toLocaleString()}</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right">${(item.profitPercent || 0)}%</td>
+        <td style="border:1px solid #ddd;padding:6px;text-align:right;font-weight:bold;color:#7c3aed">${(item.sellingPrice || 0).toLocaleString()}</td>
       </tr>`).join('');
 
     const natTotal = {
@@ -396,6 +472,10 @@ const exportWord = async (req, res) => {
       courier: natItems.reduce((s, i) => s + (i.courierCharge || 0), 0),
       shipping: natItems.reduce((s, i) => s + (i.shippingCharge || 0), 0),
       total: natItems.reduce((s, i) => s + (i.totalCost || 0), 0),
+      estb: natItems.reduce((s, i) => s + (i.establishmentCost || 0), 0),
+      packaging: natItems.reduce((s, i) => s + (i.packagingCost || 0), 0),
+      localCourier: natItems.reduce((s, i) => s + (i.localCourierCost || 0), 0),
+      advertising: natItems.reduce((s, i) => s + (i.advertisingCost || 0), 0),
       sellingPrice: natItems.reduce((s, i) => s + (i.sellingPrice || 0), 0),
     };
 
@@ -405,50 +485,62 @@ const exportWord = async (req, res) => {
 <head>
 <meta charset="UTF-8">
 <style>
-  body { font-family: 'Calibri', Arial, sans-serif; margin: 40px; color: #111; }
-  h1 { color: #4f46e5; font-size: 22px; margin-bottom: 4px; }
-  h2 { font-size: 16px; margin-top: 32px; margin-bottom: 8px; padding: 6px 12px; color: #fff; border-radius: 4px; }
+  body { font-family: 'Calibri', Arial, sans-serif; margin: 30px; color: #111; font-size: 12px; }
+  h1 { color: #4f46e5; font-size: 20px; margin-bottom: 4px; }
+  h2 { font-size: 15px; margin-top: 28px; margin-bottom: 8px; padding: 6px 12px; color: #fff; border-radius: 4px; }
   h2.intl { background: #4f46e5; }
   h2.nat  { background: #059669; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 8px; }
-  th { padding: 9px 8px; text-align: center; color: #fff; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 8px; }
+  th { padding: 7px 5px; text-align: center; color: #fff; }
   th.intl { background: #6366f1; border: 1px solid #4f46e5; }
   th.nat  { background: #10b981; border: 1px solid #059669; }
-  td { border: 1px solid #ddd; padding: 8px; }
+  td { border: 1px solid #ddd; padding: 6px 5px; }
   tr.total td { font-weight: bold; background: #e0e7ff; border-top: 2px solid #4f46e5; }
   tr.total-nat td { font-weight: bold; background: #d1fae5; border-top: 2px solid #059669; }
-  .generated { font-size: 11px; color: #888; margin-top: 40px; }
+  .generated { font-size: 10px; color: #888; margin-top: 30px; }
 </style>
 </head>
 <body>
 <h1>Product Cost Report</h1>
-<p style="color:#888;font-size:13px">Generated: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+<p style="color:#888;font-size:12px">Generated: ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
 
 <h2 class="intl">International Products</h2>
 <table>
   <thead>
     <tr>
-      <th class="intl" style="width:40px">SL</th>
+      <th class="intl">SL</th>
       <th class="intl">Product Name</th>
+      <th class="intl">Size</th>
       <th class="intl">Company</th>
-      <th class="intl">Product Price (৳)</th>
-      <th class="intl">China Local Courier (৳)</th>
-      <th class="intl">Shipping Charge (৳)</th>
-      <th class="intl">BD Courier Charge (৳)</th>
+      <th class="intl">Qty</th>
+      <th class="intl">Unit Price (৳)</th>
+      <th class="intl">China Courier (৳)</th>
+      <th class="intl">Shipping (৳)</th>
+      <th class="intl">BD Courier (৳)</th>
       <th class="intl">Total Cost (৳)</th>
+      <th class="intl">Unit/After Rcv (৳)</th>
+      <th class="intl">Estb (৳)</th>
+      <th class="intl">Pkg (৳)</th>
+      <th class="intl">Local Courier (৳)</th>
+      <th class="intl">Adv (৳)</th>
       <th class="intl">Profit %</th>
       <th class="intl">Selling Price (৳)</th>
     </tr>
   </thead>
   <tbody>
-    ${intlRows || '<tr><td colspan="10" style="text-align:center;color:#aaa;padding:16px">No international products</td></tr>'}
+    ${intlRows || '<tr><td colspan="17" style="text-align:center;color:#aaa;padding:16px">No international products</td></tr>'}
     <tr class="total">
-      <td></td><td>TOTAL</td><td></td>
+      <td></td><td>TOTAL</td><td></td><td></td><td></td>
       <td style="text-align:right">${intlTotal.productPrice.toLocaleString()}</td>
       <td style="text-align:right">${intlTotal.chinaLocal.toLocaleString()}</td>
       <td style="text-align:right">${intlTotal.shipping.toLocaleString()}</td>
       <td style="text-align:right">${intlTotal.bdCourier.toLocaleString()}</td>
       <td style="text-align:right;color:#4f46e5">${intlTotal.total.toLocaleString()}</td>
+      <td></td>
+      <td style="text-align:right">${intlTotal.estb.toLocaleString()}</td>
+      <td style="text-align:right">${intlTotal.packaging.toLocaleString()}</td>
+      <td style="text-align:right">${intlTotal.localCourier.toLocaleString()}</td>
+      <td style="text-align:right">${intlTotal.advertising.toLocaleString()}</td>
       <td></td>
       <td style="text-align:right;color:#7c3aed">${intlTotal.sellingPrice.toLocaleString()}</td>
     </tr>
@@ -459,25 +551,37 @@ const exportWord = async (req, res) => {
 <table>
   <thead>
     <tr>
-      <th class="nat" style="width:40px">SL</th>
+      <th class="nat">SL</th>
       <th class="nat">Product Name</th>
+      <th class="nat">Size</th>
       <th class="nat">Company</th>
-      <th class="nat">Product Price (৳)</th>
-      <th class="nat">Courier Charge (৳)</th>
-      <th class="nat">Shipping Charge (৳)</th>
+      <th class="nat">Qty</th>
+      <th class="nat">Unit Price (৳)</th>
+      <th class="nat">Courier (৳)</th>
+      <th class="nat">Shipping (৳)</th>
       <th class="nat">Total Cost (৳)</th>
+      <th class="nat">Unit/After Rcv (৳)</th>
+      <th class="nat">Estb (৳)</th>
+      <th class="nat">Pkg (৳)</th>
+      <th class="nat">Local Courier (৳)</th>
+      <th class="nat">Adv (৳)</th>
       <th class="nat">Profit %</th>
       <th class="nat">Selling Price (৳)</th>
     </tr>
   </thead>
   <tbody>
-    ${natRows || '<tr><td colspan="9" style="text-align:center;color:#aaa;padding:16px">No national products</td></tr>'}
+    ${natRows || '<tr><td colspan="16" style="text-align:center;color:#aaa;padding:16px">No national products</td></tr>'}
     <tr class="total-nat">
-      <td></td><td>TOTAL</td><td></td>
+      <td></td><td>TOTAL</td><td></td><td></td><td></td>
       <td style="text-align:right">${natTotal.productPrice.toLocaleString()}</td>
       <td style="text-align:right">${natTotal.courier.toLocaleString()}</td>
       <td style="text-align:right">${natTotal.shipping.toLocaleString()}</td>
       <td style="text-align:right;color:#059669">${natTotal.total.toLocaleString()}</td>
+      <td></td>
+      <td style="text-align:right">${natTotal.estb.toLocaleString()}</td>
+      <td style="text-align:right">${natTotal.packaging.toLocaleString()}</td>
+      <td style="text-align:right">${natTotal.localCourier.toLocaleString()}</td>
+      <td style="text-align:right">${natTotal.advertising.toLocaleString()}</td>
       <td></td>
       <td style="text-align:right;color:#7c3aed">${natTotal.sellingPrice.toLocaleString()}</td>
     </tr>
