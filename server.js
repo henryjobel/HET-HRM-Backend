@@ -24,6 +24,7 @@ const departmentRoutes = require('./routes/departmentRoutes');
 const noticeRoutes = require('./routes/noticeRoutes');
 const employeeAuthRoutes = require('./routes/employeeAuthRoutes');
 const portalRoutes = require('./routes/portalRoutes');
+const productCostRoutes = require('./routes/productCostRoutes');
 
 const app = express();
 
@@ -69,6 +70,7 @@ app.use('/api/departments', departmentRoutes);
 app.use('/api/notices', noticeRoutes);
 app.use('/api/employee-auth', employeeAuthRoutes);
 app.use('/api/portal', portalRoutes);
+app.use('/api/product-costs', productCostRoutes);
 
 // Health check
 app.get('/', (req, res) => res.json({ message: 'HET HRM API is running' }));
