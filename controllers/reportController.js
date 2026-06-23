@@ -54,11 +54,21 @@ const getDashboard = async (req, res) => {
     const tasksCompleted = await Task.countDocuments({ status: 'completed' });
     const totalTasks = tasksPending + tasksInProgress + tasksCompleted;
 
-    // 5 most recent employees
+    // Recent dashboard lists
     const recentEmployees = await Employee.find()
       .populate('company', 'name')
       .sort({ createdAt: -1 })
       .limit(5);
+    const recentCompletedTasks = await Task.find({ status: 'completed' })
+      .populate('employee', 'name rank')
+      .populate('company', 'name')
+      .sort({ updatedAt: -1 })
+      .limit(5);
+    const activeTasks = await Task.find({ status: { $in: ['pending', 'in-progress'] } })
+      .populate('employee', 'name rank')
+      .populate('company', 'name')
+      .sort({ deadline: 1, createdAt: -1 })
+      .limit(6);
 
     res.json({
       totalCompanies,
@@ -66,6 +76,8 @@ const getDashboard = async (req, res) => {
       activeEmployees,
       monthlySalaryExpense,
       tasks: { total: totalTasks, pending: tasksPending, inProgress: tasksInProgress, completed: tasksCompleted },
+      recentCompletedTasks,
+      activeTasks,
       recentEmployees,
     });
   } catch (err) {
