@@ -17,6 +17,23 @@ const taskSchema = new mongoose.Schema(
       default: 'medium',
     },
     deadline: { type: Date },
+    progressUpdates: [
+      {
+        note: { type: String, trim: true },
+        status: {
+          type: String,
+          enum: ['pending', 'in-progress', 'completed'],
+        },
+        attachment: {
+          url: { type: String },
+          publicId: { type: String },
+          originalName: { type: String },
+          fileType: { type: String },
+          size: { type: Number },
+        },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );

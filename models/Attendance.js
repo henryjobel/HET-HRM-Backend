@@ -15,6 +15,12 @@ const attendanceSchema = new mongoose.Schema(
     overtime: { type: Number, default: 0, min: 0 }, // hours
     note: { type: String, trim: true },
     markedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    markedByEmployee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
+    source: {
+      type: String,
+      enum: ['admin', 'employee'],
+      default: 'admin',
+    },
   },
   { timestamps: true }
 );

@@ -20,6 +20,32 @@ const upload = multer({
   },
 });
 
+const taskFileUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/jpg',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain',
+      'application/zip',
+    ];
+
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image, PDF, Word, Excel, text and zip files are allowed'));
+    }
+  },
+});
+
 // Helper: upload a buffer to Cloudinary and return { url, publicId }
 const uploadToCloudinary = (buffer, folder = 'het-hrm/products') => {
   return new Promise((resolve, reject) => {
@@ -34,7 +60,20 @@ const uploadToCloudinary = (buffer, folder = 'het-hrm/products') => {
   });
 };
 
+const uploadTaskFileToCloudinary = (buffer, folder = 'het-hrm/task-files') => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder, resource_type: 'auto' },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve({ url: result.secure_url, publicId: result.public_id });
+      }
+    );
+    stream.end(buffer);
+  });
+};
+
 // Helper: delete image from Cloudinary by publicId
 const deleteFromCloudinary = (publicId) => cloudinary.uploader.destroy(publicId);
 
-module.exports = { upload, uploadToCloudinary, deleteFromCloudinary };
+module.exports = { upload, taskFileUpload, uploadToCloudinary, uploadTaskFileToCloudinary, deleteFromCloudinary };

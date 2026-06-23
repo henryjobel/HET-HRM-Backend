@@ -15,6 +15,7 @@ const getAttendance = async (req, res) => {
     const records = await Attendance.find(filter)
       .populate('employee', 'name rank serialNo status')
       .populate('company', 'name')
+      .populate('markedByEmployee', 'name rank serialNo')
       .sort({ date: -1 });
 
     res.json(records);
@@ -40,6 +41,7 @@ const markAttendance = async (req, res) => {
     const populated = await record.populate([
       { path: 'employee', select: 'name rank serialNo status' },
       { path: 'company', select: 'name' },
+      { path: 'markedByEmployee', select: 'name rank serialNo' },
     ]);
 
     res.status(201).json(populated);
@@ -92,7 +94,8 @@ const updateAttendance = async (req, res) => {
   try {
     const record = await Attendance.findByIdAndUpdate(req.params.id, req.body, { new: true })
       .populate('employee', 'name rank serialNo status')
-      .populate('company', 'name');
+      .populate('company', 'name')
+      .populate('markedByEmployee', 'name rank serialNo');
     if (!record) return res.status(404).json({ message: 'Record not found' });
     res.json(record);
   } catch (err) {

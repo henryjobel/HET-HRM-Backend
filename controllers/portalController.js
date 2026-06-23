@@ -4,6 +4,7 @@ const Task = require('../models/Task');
 const Payment = require('../models/Payment');
 const Notice = require('../models/Notice');
 const Employee = require('../models/Employee');
+const { uploadTaskFileToCloudinary } = require('../middleware/uploadMiddleware');
 
 // @desc  Get own attendance
 // @route GET /api/portal/attendance
@@ -43,6 +44,48 @@ const getMyAttendanceSummary = async (req, res) => {
       total: records.length,
     };
     res.json(summary);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// @desc  Submit or update own attendance
+// @route POST /api/portal/attendance
+const submitMyAttendance = async (req, res) => {
+  try {
+    const companyId = req.employee.company._id || req.employee.company;
+    const today = new Date().toISOString().split('T')[0];
+    const {
+      date = today,
+      status = 'present',
+      checkIn,
+      checkOut,
+      overtime = 0,
+      note,
+    } = req.body;
+
+    if (!date) return res.status(400).json({ message: 'Date is required' });
+
+    const update = {
+      employee: req.employee._id,
+      company: companyId,
+      date,
+      status,
+      overtime: Number(overtime) || 0,
+      note,
+      markedByEmployee: req.employee._id,
+      source: 'employee',
+    };
+    if (checkIn !== undefined) update.checkIn = checkIn;
+    if (checkOut !== undefined) update.checkOut = checkOut;
+
+    const record = await Attendance.findOneAndUpdate(
+      { employee: req.employee._id, date },
+      update,
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+    );
+
+    res.status(200).json(record);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -119,7 +162,30 @@ const updateMyTaskStatus = async (req, res) => {
   try {
     const task = await Task.findOne({ _id: req.params.id, employee: req.employee._id });
     if (!task) return res.status(404).json({ message: 'Task not found' });
-    if (req.body.status) task.status = req.body.status;
+
+    const { status, note } = req.body;
+    if (status) task.status = status;
+
+    let attachment = null;
+    if (req.file) {
+      const uploaded = await uploadTaskFileToCloudinary(req.file.buffer);
+      attachment = {
+        url: uploaded.url,
+        publicId: uploaded.publicId,
+        originalName: req.file.originalname,
+        fileType: req.file.mimetype,
+        size: req.file.size,
+      };
+    }
+
+    if (note || attachment || status) {
+      task.progressUpdates.push({
+        note,
+        status: status || task.status,
+        attachment,
+      });
+    }
+
     await task.save();
     res.json(task);
   } catch (err) {
@@ -148,7 +214,7 @@ const getMyNotices = async (req, res) => {
         { $or: [{ company: companyId }, { company: null }] },
         { $or: [{ expiresAt: { $gte: new Date() } }, { expiresAt: null }] },
       ],
-    }).populate('postedBy', 'name').sort({ createdAt: -1 });
+    }).populate('company', 'name').populate('postedBy', 'name').sort({ createdAt: -1 });
     res.json(notices);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -192,8 +258,11 @@ const getMyDashboard = async (req, res) => {
       Task.countDocuments({ employee: empId }),
       Payment.findOne({ employee: empId }).sort({ paidAt: -1 }),
       Notice.find({
-        $or: [{ company: companyId }, { company: null }],
-      }).sort({ createdAt: -1 }).limit(5).populate('postedBy', 'name'),
+        $and: [
+          { $or: [{ company: companyId }, { company: null }] },
+          { $or: [{ expiresAt: { $gte: new Date() } }, { expiresAt: null }] },
+        ],
+      }).sort({ createdAt: -1 }).limit(5).populate('company', 'name').populate('postedBy', 'name'),
     ]);
 
     const presentDays = monthAttendance.filter((a) => a.status === 'present').length;
@@ -219,6 +288,7 @@ const getMyDashboard = async (req, res) => {
 
 module.exports = {
   getMyAttendance, getMyAttendanceSummary,
+  submitMyAttendance,
   getMyLeaves, applyLeave, getMyLeaveSummary,
   getMyTasks, updateMyTaskStatus,
   getMyPayments,
