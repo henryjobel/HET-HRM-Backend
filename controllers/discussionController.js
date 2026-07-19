@@ -26,6 +26,8 @@ const getMessages = async (req, res) => {
 
     const messages = await DiscussionMessage.find(filter)
       .populate('company', 'name')
+      .populate('senderEmployee', 'name rank')
+      .populate('senderUser', 'name email')
       .sort({ createdAt: -1 })
       .limit(100);
     res.json(messages.reverse());
@@ -64,7 +66,10 @@ const createMessage = async (req, res) => {
     }
 
     let message = await DiscussionMessage.create(payload);
-    message = await DiscussionMessage.findById(message._id).populate('company', 'name');
+    message = await DiscussionMessage.findById(message._id)
+      .populate('company', 'name')
+      .populate('senderEmployee', 'name rank')
+      .populate('senderUser', 'name email');
 
     const io = req.app.get('io');
     if (io) {

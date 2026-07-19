@@ -31,6 +31,8 @@ const portalRoutes = require('./routes/portalRoutes');
 const productCostRoutes = require('./routes/productCostRoutes');
 const discussionRoutes = require('./routes/discussionRoutes');
 const workUpdateRoutes = require('./routes/workUpdateRoutes');
+const salaryReminderRoutes = require('./routes/salaryReminderRoutes');
+const { runSalaryReminderCheck } = require('./controllers/salaryReminderController');
 
 const app = express();
 
@@ -117,6 +119,7 @@ app.use('/api/portal', portalRoutes);
 app.use('/api/product-costs', productCostRoutes);
 app.use('/api/discussions', discussionRoutes);
 app.use('/api/work-updates', workUpdateRoutes);
+app.use('/api/salary-reminders', salaryReminderRoutes);
 
 // Health check
 app.get('/', (req, res) => res.json({ message: 'HET HRM API is running' }));
@@ -130,6 +133,8 @@ if (process.env.NODE_ENV !== 'production') {
       isConnected = true;
       console.log('MongoDB connected');
       server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+      setTimeout(() => runSalaryReminderCheck().catch((err) => console.error('Salary reminder check failed:', err.message)), 5000);
+      setInterval(() => runSalaryReminderCheck().catch((err) => console.error('Salary reminder check failed:', err.message)), 6 * 60 * 60 * 1000);
     })
     .catch((err) => {
       console.error('MongoDB connection error:', err.message);
