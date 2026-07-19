@@ -1,6 +1,7 @@
 const Employee = require('../models/Employee');
 const Company = require('../models/Company');
 const Task = require('../models/Task');
+const WorkUpdate = require('../models/WorkUpdate');
 
 // GET /api/reports?company=id&months=3|6|12
 const getReport = async (req, res) => {
@@ -12,9 +13,11 @@ const getReport = async (req, res) => {
     dateFrom.setMonth(dateFrom.getMonth() - duration);
 
     const filter = { joiningDate: { $lte: new Date() } };
-    if (company) filter.company = company;
+    if (company) filter.$or = [{ company }, { companies: company }];
 
-    const employees = await Employee.find(filter).populate('company', 'name');
+    const employees = await Employee.find(filter)
+      .populate('company', 'name')
+      .populate('companies', 'name');
 
     // Filter employees whose joining date is within the report window
     const inWindow = employees.filter((e) => new Date(e.joiningDate) >= dateFrom);
@@ -57,6 +60,7 @@ const getDashboard = async (req, res) => {
     // Recent dashboard lists
     const recentEmployees = await Employee.find()
       .populate('company', 'name')
+      .populate('companies', 'name')
       .sort({ createdAt: -1 })
       .limit(5);
     const recentCompletedTasks = await Task.find({ status: 'completed' })
@@ -69,6 +73,11 @@ const getDashboard = async (req, res) => {
       .populate('company', 'name')
       .sort({ deadline: 1, createdAt: -1 })
       .limit(6);
+    const latestWorkUpdates = await WorkUpdate.find()
+      .populate('employee', 'name rank')
+      .populate('company', 'name')
+      .sort({ createdAt: -1 })
+      .limit(6);
 
     res.json({
       totalCompanies,
@@ -79,6 +88,7 @@ const getDashboard = async (req, res) => {
       recentCompletedTasks,
       activeTasks,
       recentEmployees,
+      latestWorkUpdates,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

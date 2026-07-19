@@ -1,6 +1,10 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const http = require('http');
+const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
+const Employee = require('./models/Employee');
 require('dotenv').config();
 
 // MongoDB connection caching for serverless environments
@@ -25,6 +29,8 @@ const noticeRoutes = require('./routes/noticeRoutes');
 const employeeAuthRoutes = require('./routes/employeeAuthRoutes');
 const portalRoutes = require('./routes/portalRoutes');
 const productCostRoutes = require('./routes/productCostRoutes');
+const discussionRoutes = require('./routes/discussionRoutes');
+const workUpdateRoutes = require('./routes/workUpdateRoutes');
 
 const app = express();
 
@@ -46,6 +52,44 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true,
+  },
+});
+
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token;
+    if (!token) return next(new Error('Not authorized'));
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userRole = decoded.role === 'employee' ? 'employee' : 'admin';
+    if (socket.userRole === 'employee') {
+      await connectDB();
+      const employee = await Employee.findById(decoded.id).select('company companies');
+      socket.companyIds = [
+        employee?.company,
+        ...(employee?.companies || []),
+      ].filter(Boolean).map(String);
+    }
+    next();
+  } catch {
+    next(new Error('Not authorized'));
+  }
+});
+
+io.on('connection', (socket) => {
+  if (socket.userRole === 'admin') {
+    socket.join('discussion:admins');
+  }
+  (socket.companyIds || []).forEach((companyId) => socket.join(`company:${companyId}`));
+  socket.join('discussion:global');
+});
+
+app.set('io', io);
 
 // Connect DB before handling requests (serverless-safe)
 app.use(async (req, res, next) => {
@@ -71,6 +115,8 @@ app.use('/api/notices', noticeRoutes);
 app.use('/api/employee-auth', employeeAuthRoutes);
 app.use('/api/portal', portalRoutes);
 app.use('/api/product-costs', productCostRoutes);
+app.use('/api/discussions', discussionRoutes);
+app.use('/api/work-updates', workUpdateRoutes);
 
 // Health check
 app.get('/', (req, res) => res.json({ message: 'HET HRM API is running' }));
@@ -83,7 +129,7 @@ if (process.env.NODE_ENV !== 'production') {
     .then(() => {
       isConnected = true;
       console.log('MongoDB connected');
-      app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+      server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
     })
     .catch((err) => {
       console.error('MongoDB connection error:', err.message);

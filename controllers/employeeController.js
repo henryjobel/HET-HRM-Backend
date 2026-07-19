@@ -1,10 +1,22 @@
 const Employee = require('../models/Employee');
 
+const normalizeCompanies = (company, companies = []) => {
+  const values = Array.isArray(companies) ? companies : [];
+  const ids = [...new Set([company, ...values].filter(Boolean).map(String))];
+  return ids;
+};
+
 // GET /api/employees?company=id
 const getEmployees = async (req, res) => {
   try {
-    const filter = req.query.company ? { company: req.query.company } : {};
-    const employees = await Employee.find(filter).select('-password').populate('company', 'name').sort({ serialNo: 1 });
+    const filter = req.query.company
+      ? { $or: [{ company: req.query.company }, { companies: req.query.company }] }
+      : {};
+    const employees = await Employee.find(filter)
+      .select('-password')
+      .populate('company', 'name')
+      .populate('companies', 'name')
+      .sort({ serialNo: 1 });
     res.json(employees);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -14,7 +26,10 @@ const getEmployees = async (req, res) => {
 // GET /api/employees/:id
 const getEmployeeById = async (req, res) => {
   try {
-    const employee = await Employee.findById(req.params.id).select('-password').populate('company', 'name');
+    const employee = await Employee.findById(req.params.id)
+      .select('-password')
+      .populate('company', 'name')
+      .populate('companies', 'name');
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
     res.json(employee);
   } catch (err) {
@@ -25,8 +40,10 @@ const getEmployeeById = async (req, res) => {
 // POST /api/employees
 const createEmployee = async (req, res) => {
   try {
-    const { company, name, rank, joiningDate, salary, bonus, email, phone, password } = req.body;
-    if (!company || !name || !rank || !joiningDate || salary === undefined)
+    const { company, companies, name, rank, joiningDate, salary, bonus, email, phone, password } = req.body;
+    const companyIds = normalizeCompanies(company, companies);
+    const primaryCompany = companyIds[0];
+    if (!primaryCompany || !name || !rank || !joiningDate || salary === undefined)
       return res.status(400).json({ message: 'Required fields missing' });
 
     if (email) {
@@ -35,9 +52,10 @@ const createEmployee = async (req, res) => {
     }
 
     // Auto-assign serial number
-    const count = await Employee.countDocuments({ company });
+    const count = await Employee.countDocuments({ company: primaryCompany });
     const employee = await Employee.create({
-      company,
+      company: primaryCompany,
+      companies: companyIds,
       serialNo: count + 1,
       name,
       rank,
@@ -59,8 +77,13 @@ const createEmployee = async (req, res) => {
 // PUT /api/employees/:id
 const updateEmployee = async (req, res) => {
   try {
-    const { salary, bonus, password, ...rest } = req.body;
+    const { salary, bonus, password, company, companies, ...rest } = req.body;
     const updateData = { ...rest };
+    const companyIds = normalizeCompanies(company, companies);
+    if (companyIds.length) {
+      updateData.company = companyIds[0];
+      updateData.companies = companyIds;
+    }
     if (salary !== undefined) updateData.salary = salary;
     if (bonus !== undefined) updateData.bonus = bonus;
     if (salary !== undefined || bonus !== undefined) {

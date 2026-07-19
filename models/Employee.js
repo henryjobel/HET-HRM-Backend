@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const employeeSchema = new mongoose.Schema(
   {
     company: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true },
+    companies: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Company' }],
     department: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
     serialNo: { type: Number, required: true },
     name: { type: String, required: true, trim: true },
@@ -27,6 +28,9 @@ const employeeSchema = new mongoose.Schema(
 // Hash password before save
 employeeSchema.pre('save', async function (next) {
   this.total = this.salary + this.bonus;
+  if (this.company && (!this.companies || this.companies.length === 0)) {
+    this.companies = [this.company];
+  }
   if (this.isModified('password') && this.password) {
     this.password = await bcrypt.hash(this.password, 12);
   }

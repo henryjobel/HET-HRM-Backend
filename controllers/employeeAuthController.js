@@ -12,7 +12,10 @@ const employeeLogin = async (req, res) => {
     if (!email || !password)
       return res.status(400).json({ message: 'Email and password required' });
 
-    const employee = await Employee.findOne({ email }).populate('company', 'name').populate('department', 'name');
+    const employee = await Employee.findOne({ email })
+      .populate('company', 'name')
+      .populate('companies', 'name')
+      .populate('department', 'name');
     if (!employee || !employee.password)
       return res.status(401).json({ message: 'Invalid credentials' });
 
@@ -29,6 +32,7 @@ const employeeLogin = async (req, res) => {
       email: employee.email,
       role: 'employee',
       company: employee.company,
+      companies: employee.companies,
       department: employee.department,
       rank: employee.rank,
       token: generateToken(employee._id),
