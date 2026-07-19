@@ -1,4 +1,7 @@
 const WorkUpdate = require('../models/WorkUpdate');
+const { sendWorkUpdateEmail } = require('../services/mailService');
+
+const WORK_UPDATE_NOTIFY_TO = process.env.WORK_UPDATE_NOTIFY_TO || 'ehasib@gmail.com';
 
 const getWorkUpdates = async (req, res) => {
   try {
@@ -46,9 +49,34 @@ const createMyWorkUpdate = async (req, res) => {
       details,
     });
 
-    const result = await WorkUpdate.findById(update._id)
+    let result = await WorkUpdate.findById(update._id)
       .populate('employee', 'name rank')
       .populate('company', 'name');
+
+    try {
+      const emailNotification = await sendWorkUpdateEmail({
+        to: WORK_UPDATE_NOTIFY_TO,
+        update: result,
+        employee: req.employee,
+        company: result.company,
+      });
+      result.emailStatus = emailNotification?.skipped ? 'skipped' : 'sent';
+      result.emailSentAt = emailNotification?.skipped ? undefined : new Date();
+      result.emailError = emailNotification?.skipped ? 'Mail is not configured' : undefined;
+      await result.save();
+      result = await WorkUpdate.findById(result._id)
+        .populate('employee', 'name rank')
+        .populate('company', 'name');
+    } catch (mailErr) {
+      console.error('Work update email failed:', mailErr.message);
+      result.emailStatus = 'failed';
+      result.emailError = mailErr.message;
+      await result.save();
+      result = await WorkUpdate.findById(result._id)
+        .populate('employee', 'name rank')
+        .populate('company', 'name');
+    }
+
     res.status(201).json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });

@@ -11,6 +11,13 @@ const workUpdateSchema = new mongoose.Schema(
       enum: ['submitted', 'reviewed'],
       default: 'submitted',
     },
+    emailStatus: {
+      type: String,
+      enum: ['pending', 'sent', 'skipped', 'failed'],
+      default: 'pending',
+    },
+    emailSentAt: { type: Date },
+    emailError: { type: String },
   },
   { timestamps: true }
 );
